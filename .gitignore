@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Secrets / local environment
+.env
+.env.*
+*.env
+*.env.*
+!.env.example
+!.env.sample
+!.env.template
+!*.env.example
+!*.env.sample
+!*.env.template
+
+# Local IG-clone sandboxes — separate projects with their own git history.
+# (See ~/.claude memory: instagram-crawl-sandboxes.) Kept out of this repo.
+clonagram/
+instagram-clone-mongo/
+
+# Local dev data + tooling capture artifacts
+.localdb/
+.playwright-mcp/
+.claude/
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.log

@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>협찬 아웃리치 · 고객/이메일 대시보드</title>
+<style>
+  :root {
+    --accent: #4a5df9;
+    --bg: #f6f7f9;
+    --card: #ffffff;
+    --border: #e6e8eb;
+    --text: #1c1e21;
+    --muted: #6b6f76;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .04), 0 1px 8px rgba(0, 0, 0, .03);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    font-size: 14px; line-height: 1.45;
+  }
+  a { color: var(--accent); }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 18px 20px 60px; }
+
+  /* Header */
+  header.bar {
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    padding: 14px 20px; background: var(--card); border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 10;
+  }
+  .logo { width: 26px; height: 26px; border-radius: 7px; background: var(--accent); flex: none; }
+  header.bar h1 { font-size: 16px; margin: 0; font-weight: 700; }
+  header.bar .grow { flex: 1; }
+  select, button, input { font: inherit; }
+  select, input[type=search] {
+    border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; background: #fff; color: var(--text);
+  }
+  button {
+    border: 1px solid var(--border); border-radius: 8px; padding: 7px 12px; background: #fff;
+    cursor: pointer; color: var(--text); transition: background .12s, border-color .12s;
+  }
+  button:hover { background: #f0f1f3; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.primary:hover { filter: brightness(1.06); }
+  .sync { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #b7bcc4; flex: none; }
+  .dot.live { background: #1a7f37; box-shadow: 0 0 0 3px rgba(26,127,55,.15); }
+  .dot.err { background: #cf222e; }
+
+  /* Stat cards */
+  .cards { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin: 18px 0; }
+  @media (max-width: 880px) { .cards { grid-template-columns: repeat(3, 1fr); } }
+  .card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 13px 14px;
+    box-shadow: var(--shadow); cursor: pointer; transition: border-color .12s, transform .06s;
+  }
+  .card:hover { border-color: #cfd3da; }
+  .card.active { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(74,93,249,.14); }
+  .card .n { font-size: 24px; font-weight: 760; letter-spacing: -.5px; }
+  .card .l { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .card .l small { color: #9aa0a8; }
+
+  /* Controls */
+  .controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+  .controls input[type=search] { min-width: 240px; flex: 1; max-width: 360px; }
+  .controls .spacer { flex: 1; }
+
+  /* Table */
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 12px; color: var(--muted); font-weight: 600; background: #fbfbfc; position: sticky; top: 0; }
+  tbody tr:hover { background: #fafbfc; }
+  td.handle { font-weight: 600; }
+  td.email { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; }
+  .muted { color: var(--muted); }
+  .vars { color: var(--muted); font-size: 12px; }
+
+  /* Status pills */
+  .pill { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+  .s-email_collected { background: #e7f5ec; color: #1a7f37; }
+  .s-no_email       { background: #fff4d6; color: #9a6700; }
+  .s-pending        { background: #eef0f2; color: #6b6f76; }
+  .s-sent           { background: #e9ebfe; color: #3a40c0; }
+  .s-second_sent    { background: #e3f3f3; color: #0d7d7d; }
+  .s-replied        { background: #e6f0ff; color: #1f57c3; }
+  .s-skipped        { background: #f0f0f0; color: #8a8f97; }
+  .s-failed         { background: #ffe9e9; color: #cf222e; }
+  .conf { font-size: 11px; padding: 1px 7px; border-radius: 6px; background: #f0f1f3; color: #6b6f76; }
+  .conf.high { background: #e7f5ec; color: #1a7f37; }
+  .conf.medium { background: #fff4d6; color: #9a6700; }
+
+  .empty { padding: 40px; text-align: center; color: var(--muted); }
+  .sec-title { font-size: 13px; font-weight: 700; margin: 26px 0 10px; color: #3a3d42; display: flex; align-items: center; gap: 8px; }
+  .sec-title button { padding: 3px 9px; font-size: 12px; }
+  details.logs summary { cursor: pointer; list-style: none; }
+  .logrow td { font-size: 12.5px; }
+  .ts { color: var(--muted); white-space: nowrap; }
+  code.ftext { font-size: 12px; color: #444; word-break: break-word; }
+  .banner { background: #fff8e6; border: 1px solid #ffe8a3; color: #7a5b00; padding: 8px 12px; border-radius: 8px; font-size: 12.5px; margin-bottom: 14px; }
+</style>
+</head>
+<body>
+<header class="bar">
+  <div class="logo"></div>
+  <h1>협찬 아웃리치 · 고객/이메일</h1>
+  <select id="campaignSel" title="캠페인 선택"></select>
+  <div class="grow"></div>
+  <div class="sync"><span class="dot" id="liveDot"></span><span id="syncTxt">연결 중…</span></div>
+  <button id="refreshBtn" title="새로고침">↻ 새로고침</button>
+</header>
+
+<div class="wrap">
+  <div id="connBanner" class="banner" style="display:none"></div>
+
+  <div class="cards" id="cards"></div>
+
+  <div class="controls">
+    <input type="search" id="search" placeholder="핸들·이메일 검색…" />
+    <button id="clearFilter" title="필터 해제">필터 해제</button>
+    <div class="spacer"></div>
+    <button id="csvEmails" class="primary" title="이메일수집 버킷 → 이메일 아웃리치 명단">📧 수집 이메일 CSV</button>
+    <button id="csvAll" title="현재 보이는 전체 CSV">전체 CSV</button>
+  </div>
+
+  <div class="panel">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:160px">핸들</th>
+          <th style="width:104px">상태</th>
+          <th>이메일</th>
+          <th style="width:74px">신뢰도</th>
+          <th>근거</th>
+          <th style="width:110px">관리상태</th>
+          <th style="width:160px">메모</th>
+          <th style="width:150px">변수</th>
+          <th style="width:120px">업데이트</th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div class="empty" id="tableEmpty" style="display:none">대상이 없습니다.</div>
+  </div>
+
+  <div class="sec-title">발송·수집 로그 <span class="muted" id="logCount"></span></div>
+  <div class="panel">
+    <table>
+      <thead><tr><th style="width:130px">시각</th><th style="width:150px">핸들</th><th style="width:110px">결과</th><th>내용</th></tr></thead>
+      <tbody id="logRows"></tbody>
+    </table>
+    <div class="empty" id="logEmpty" style="display:none">로그가 없습니다.</div>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="vendor/supabase.js"></script>
+<script>
+// Local UMD bundle (not a CDN import) so this page also runs as a packaged
+// chrome-extension page, where the MV3 CSP blocks remote scripts.
+const { createClient } = window.supabase;
+
+// Connection config lives in config.js (see src/lib/config.js for the security note).
+const SUPABASE_URL = window.SUPABASE_CONFIG.url;
+const SUPABASE_ANON = window.SUPABASE_CONFIG.anonKey;
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON, { auth: { persistSession: false } });
+
+const STATUS = {
+  email_collected: '이메일수집', no_email: '이메일없음', pending: '대기',
+  sent: '발송완료', second_sent: '2차발송', replied: '답장', skipped: '건너뜀', failed: '실패',
+};
+// Dashboard-managed CRM lifecycle (separate from the extension's `status`). Stored in
+// the `crm_status` column, which the one-way extension→DB sync never writes, so these
+// edits are durable (not clobbered on the next sync). Requires migration 0002.
+const CRM_STATUS = { '': '—', pending: '대기', contacted: '컨택', replied: '답장', excluded: '제외' };
+// Bucket cards: [key shown, label, sublabel, which statuses it covers]
+const BUCKETS = [
+  { key: 'all', label: '전체', match: () => true },
+  { key: 'email_collected', label: '이메일수집', sub: '이메일 아웃리치', match: (s) => s === 'email_collected' },
+  { key: 'no_email', label: 'DM 대기', sub: '이메일없음', match: (s) => s === 'no_email' },
+  { key: 'sent', label: '발송완료', sub: 'DM', match: (s) => s === 'sent' || s === 'second_sent' },
+  { key: 'pending', label: '미수집', sub: '수집 대기', match: (s) => s === 'pending' },
+  { key: 'failed', label: '실패', sub: '재시도', match: (s) => s === 'failed' },
+];
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+const state = { campaigns: [], campaignId: null, targets: [], logs: [], filter: 'all', search: '' };
+
+// ── Data load ───────────────────────────────────────────────────────────────
+async function loadCampaigns() {
+  const { data, error } = await sb.from('outreach_campaigns').select('*').order('updated_at', { ascending: false });
+  if (error) throw error;
+  state.campaigns = data || [];
+  if (!state.campaignId || !state.campaigns.find((c) => c.id === state.campaignId)) {
+    state.campaignId = state.campaigns[0]?.id ?? null;
+  }
+  const sel = $('campaignSel');
+  sel.innerHTML = state.campaigns.length
+    ? state.campaigns.map((c) => `<option value="${esc(c.id)}">${esc(c.name || '(이름없음)')}${c.sender_handle ? ' · @' + esc(c.sender_handle) : ''}</option>`).join('')
+    : '<option value="">캠페인 없음</option>';
+  if (state.campaignId) sel.value = state.campaignId;
+}
+
+async function loadData() {
+  if (!state.campaignId) { state.targets = []; state.logs = []; return; }
+  const [t, l] = await Promise.all([
+    sb.from('outreach_targets').select('*').eq('campaign_id', state.campaignId).order('updated_at', { ascending: false }),
+    sb.from('outreach_logs').select('*').eq('campaign_id', state.campaignId).order('ts', { ascending: false }).limit(200),
+  ]);
+  if (t.error) throw t.error;
+  if (l.error) throw l.error;
+  state.targets = t.data || [];
+  state.logs = l.data || [];
+}
+
+async function reloadAll() {
+  try {
+    await loadCampaigns();
+    await loadData();
+    render();
+    setSync(true);
+  } catch (e) {
+    console.error(e);
+    setSync(false, e.message || String(e));
+  }
+}
+
+// ── Render ──────────────────────────────────────────────────────────────────
+function counts() {
+  const c = {};
+  for (const b of BUCKETS) c[b.key] = state.targets.filter((t) => b.match(t.status)).length;
+  return c;
+}
+
+function visibleTargets() {
+  const f = BUCKETS.find((b) => b.key === state.filter) || BUCKETS[0];
+  const q = state.search.trim().toLowerCase();
+  return state.targets.filter((t) => {
+    if (!f.match(t.status)) return false;
+    if (!q) return true;
+    return (t.handle || '').toLowerCase().includes(q) || (t.email || '').toLowerCase().includes(q);
+  });
+}
+
+function renderCards() {
+  const c = counts();
+  $('cards').innerHTML = BUCKETS.map((b) => `
+    <div class="card ${state.filter === b.key ? 'active' : ''}" data-bucket="${b.key}">
+      <div class="n">${c[b.key]}</div>
+      <div class="l">${esc(b.label)} ${b.sub ? `<small>· ${esc(b.sub)}</small>` : ''}</div>
+    </div>`).join('');
+  document.querySelectorAll('.card').forEach((el) => el.addEventListener('click', () => {
+    state.filter = el.dataset.bucket; render();
+  }));
+}
+
+function fmtTime(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d)) return '';
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear() % 100}/${p(d.getMonth() + 1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+function fmtTs(ts) {
+  if (!ts) return '';
+  return fmtTime(new Date(Number(ts)).toISOString());
+}
+
+function renderTable() {
+  const list = visibleTargets();
+  $('tableEmpty').style.display = list.length ? 'none' : 'block';
+  $('rows').innerHTML = list.map((t) => {
+    const conf = t.email_confidence ? `<span class="conf ${esc(t.email_confidence)}">${esc(t.email_confidence)}</span>` : '';
+    const vars = t.vars && Object.keys(t.vars).length
+      ? Object.entries(t.vars).map(([k, v]) => `${esc(k)}: ${esc(v)}`).join(', ') : '';
+    return `<tr>
+      <td class="handle">@${esc(t.handle)}</td>
+      <td><span class="pill s-${esc(t.status)}">${esc(STATUS[t.status] || t.status)}</span></td>
+      <td class="email">${t.email ? esc(t.email) : '<span class="muted">—</span>'}</td>
+      <td>${conf || '<span class="muted">—</span>'}</td>
+      <td class="muted">${t.email_reason ? esc(t.email_reason) : ''}</td>
+      <td>
+        <select data-crm="${esc(t.id)}" title="대시보드 관리 상태 (확장 동기화에 덮이지 않음)">
+          ${Object.entries(CRM_STATUS).map(([v, l]) => `<option value="${v}"${(t.crm_status || '') === v ? ' selected' : ''}>${l}</option>`).join('')}
+        </select>
+      </td>
+      <td><input data-note="${esc(t.id)}" value="${esc(t.note || '')}" placeholder="메모…" style="width:150px;border:1px solid var(--border);border-radius:6px;padding:5px 8px;font:inherit;" /></td>
+      <td class="vars">${vars}</td>
+      <td class="ts">${fmtTime(t.updated_at)}</td>
+    </tr>`;
+  }).join('');
+
+  // Inline CRM editing — durable fields the extension sync never overwrites.
+  $('rows').querySelectorAll('select[data-crm]').forEach((el) =>
+    el.addEventListener('change', () => saveCrm(el.dataset.crm, { crm_status: el.value || null })));
+  $('rows').querySelectorAll('input[data-note]').forEach((el) =>
+    el.addEventListener('change', () => saveCrm(el.dataset.note, { note: el.value || null })));
+}
+
+// Persist a dashboard-side CRM edit. Uses .update() so only the given columns are
+// touched. RLS-off (or the anon_all policy from migration 0001) lets the anon key write.
+async function saveCrm(id, patch) {
+  const { error } = await sb.from('outreach_targets').update(patch).eq('id', id);
+  if (error) {
+    const missingCol = /column|crm_status|note|schema cache/i.test(error.message || '');
+    setSync(false, (missingCol ? 'CRM 컬럼이 없습니다 — supabase/migrations/0002_crm_columns.sql 를 실행하세요: ' : 'CRM 저장 실패: ') + error.message);
+    return;
+  }
+  const t = state.targets.find((x) => x.id === id);
+  if (t) Object.assign(t, patch);
+}
+
+function renderLogs() {
+  $('logCount').textContent = state.logs.length ? `(최근 ${state.logs.length})` : '';
+  $('logEmpty').style.display = state.logs.length ? 'none' : 'block';
+  $('logRows').innerHTML = state.logs.map((l) => `
+    <tr class="logrow">
+      <td class="ts">${fmtTs(l.ts)}</td>
+      <td>${l.target_handle ? '@' + esc(l.target_handle) : '<span class="muted">—</span>'}</td>
+      <td><span class="pill s-${esc(l.result === 'skipped' ? 'skipped' : l.result === 'failed' ? 'failed' : 'sent')}">${esc(l.result || '')}</span></td>
+      <td><code class="ftext">${esc(l.final_text || '')}</code></td>
+    </tr>`).join('');
+}
+
+function render() { renderCards(); renderTable(); renderLogs(); }
+
+// ── Sync indicator ──────────────────────────────────────────────────────────
+function setSync(ok, msg) {
+  const dot = $('liveDot'), txt = $('syncTxt'), banner = $('connBanner');
+  if (ok) {
+    dot.className = 'dot live';
+    txt.textContent = '실시간 연결됨 · ' + new Date().toLocaleTimeString('ko-KR');
+    banner.style.display = 'none';
+  } else {
+    dot.className = 'dot err';
+    txt.textContent = '연결 오류';
+    banner.style.display = 'block';
+    banner.textContent = '데이터를 불러오지 못했습니다: ' + (msg || '') + ' — 네트워크/키를 확인하세요.';
+  }
+}
+
+// ── CSV export ──────────────────────────────────────────────────────────────
+function download(name, rows) {
+  const csv = rows.map((r) => r.map((c) => {
+    const s = String(c ?? '');
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  }).join(',')).join('\r\n');
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+function exportEmails() {
+  const rows = [['handle', 'email', 'confidence', 'reason']];
+  state.targets.filter((t) => t.status === 'email_collected' && t.email)
+    .forEach((t) => rows.push([t.handle, t.email, t.email_confidence || '', t.email_reason || '']));
+  download(`outreach_emails_${state.campaignId || 'all'}.csv`, rows);
+}
+function exportAll() {
+  const rows = [['handle', 'status', 'email', 'confidence', 'reason', 'vars', 'updated_at']];
+  visibleTargets().forEach((t) => rows.push([
+    t.handle, STATUS[t.status] || t.status, t.email || '', t.email_confidence || '', t.email_reason || '',
+    t.vars ? JSON.stringify(t.vars) : '', t.updated_at || '',
+  ]));
+  download(`outreach_targets_${state.campaignId || 'all'}.csv`, rows);
+}
+
+// ── Wiring ──────────────────────────────────────────────────────────────────
+$('campaignSel').addEventListener('change', (e) => { state.campaignId = e.target.value || null; loadData().then(render); });
+$('refreshBtn').addEventListener('click', reloadAll);
+$('clearFilter').addEventListener('click', () => { state.filter = 'all'; state.search = ''; $('search').value = ''; render(); });
+$('search').addEventListener('input', (e) => { state.search = e.target.value; renderTable(); });
+$('csvEmails').addEventListener('click', exportEmails);
+$('csvAll').addEventListener('click', exportAll);
+
+// Realtime: any change to the outreach_* tables → debounced reload.
+let _rt = null;
+function scheduleReload() { clearTimeout(_rt); _rt = setTimeout(reloadAll, 600); }
+sb.channel('outreach-dash')
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'outreach_targets' }, scheduleReload)
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'outreach_campaigns' }, scheduleReload)
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'outreach_logs' }, scheduleReload)
+  .subscribe((status) => { if (status === 'SUBSCRIBED') $('liveDot').className = 'dot live'; });
+
+// Safety poll (covers any missed realtime event) + initial load.
+setInterval(reloadAll, 15000);
+reloadAll();
+</script>
+</body>
+</html>

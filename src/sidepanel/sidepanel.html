@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>협찬 아웃리치 오거나이저</title>
+    <link rel="stylesheet" href="sidepanel.css" />
+  </head>
+  <body>
+    <header>
+      <div class="bar">
+        <select id="campaignSel" title="캠페인 선택"></select>
+        <button id="newCampaign" title="새 캠페인">＋</button>
+        <button id="delCampaign" title="캠페인 삭제">🗑</button>
+      </div>
+      <div id="campaignMeta" class="meta"></div>
+      <nav id="tabs">
+        <button data-tab="targets">대상·메시지</button>
+        <button data-tab="run">실행</button>
+        <button data-tab="results">결과</button>
+      </nav>
+    </header>
+
+    <main id="body"></main>
+
+    <p id="toast" class="toast" hidden></p>
+
+    <script type="module" src="sidepanel.js"></script>
+  </body>
+</html>

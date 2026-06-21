@@ -1,0 +1,37 @@
+{
+  "manifest_version": 3,
+  "name": "협찬 아웃리치 오거나이저",
+  "version": "0.1.0",
+  "description": "마이크로 인플루언서 협찬 아웃리치용 대상 리스트·템플릿·일괄 미리보기·브라우저 자동화 실행·로그 도구.",
+  "minimum_chrome_version": "114",
+  "permissions": ["storage", "tabs", "sidePanel", "clipboardWrite", "scripting", "debugger", "alarms"],
+  "host_permissions": ["*://*.instagram.com/*", "*://ig.me/*", "https://your-project-ref.supabase.co/*"],
+  "content_scripts": [
+    {
+      "matches": ["*://*.instagram.com/*"],
+      "js": ["src/content/instagram-automator.js"],
+      "run_at": "document_end"
+    }
+  ],
+  "background": {
+    "service_worker": "src/background/service-worker.js",
+    "type": "module"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_title": "협찬 아웃리치 오거나이저 열기",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png"
+    }
+  },
+  "side_panel": {
+    "default_path": "src/sidepanel/sidepanel.html"
+  },
+  "options_page": "src/options/options.html"
+}
