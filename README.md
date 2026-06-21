@@ -1,21 +1,21 @@
-# 협찬 아웃리치 자동화 오거나이저 (Chrome 확장, MV3)
+# 협찬 아웃리치 오거나이저 (Chrome 확장, MV3)
 
 마이크로 인플루언서 협찬 아웃리치 작업을 캠페인 단위로 관리하고,
-Instagram 웹 페이지에서 실행되는 content script와 연동해 발송 큐를 처리하는 Chrome 확장입니다.
+Instagram 웹 페이지에서 실행 흐름을 보조하는 Chrome 확장입니다.
 
 ## 주요 기능
 
 - CSV/붙여넣기로 핸들 임포트, 중복 제거, 개인화 변수 관리
 - `{{변수}}` 치환 + `{a|b|c}` 변형 문구 렌더링 + 길이 가드
 - 대상별 최종 문구 일괄 미리보기
-- 사이드패널에서 단건/대기열 발송 실행
-- Instagram content script를 통한 검색, 프로필 진입, DM 입력/전송 시도
+- 사이드패널에서 단건/대기열 실행
+- Instagram content script를 통한 검색, 프로필 진입, DM 입력 보조
 - 발송 완료 대상의 응답 확인 및 2차 템플릿 발송 흐름
 - 진행률, 응답률, 발송 로그, CSV 내보내기
-- 실행 전 차단/탭 준비/content script ping/명령 실패를 JSON 트레이스로 기록
+- 실행 전 점검/탭 준비/content script ping/명령 실패를 JSON 트레이스로 기록
 - 데이터는 로컬 `chrome.storage.local`에 저장
 
-운영 전에는 Instagram/Meta 정책, 수신자 동의 범위, 계정 리스크를 별도로 확인해야 합니다.
+운영 전에는 캠페인 기준, 수신자 컨텍스트, 템플릿 품질을 먼저 점검하세요.
 
 ## 설치 (개발자 모드 / 언팩)
 
@@ -55,7 +55,7 @@ node dev/dev-server.mjs
 1. **대상** — 핸들 붙여넣기 또는 CSV 임포트, 발신 계정/상한 설정
 2. **템플릿** — 협찬 메시지 작성, 변수 삽입, 샘플 미리보기
 3. **검토** — 전체 대상의 최종 문구 점검
-4. **발송** — 단건 자동 발송 또는 대기열 배치 발송 실행
+4. **실행** — 단건 또는 대기열 배치 실행
 5. **로그** — 발송/응답 추이 확인, CSV 내보내기
 
 ## 문제 분석 트레이스
@@ -65,7 +65,7 @@ node dev/dev-server.mjs
 
 주요 `run_event` 유형:
 
-- `preflight_blocked`: 웹 하니스 실행, 이미 처리 중, 쿨다운, 템플릿 없음, IG 탭 없음,
+- `preflight_hold`: 웹 하니스 실행, 이미 처리 중, 쿨다운, 템플릿 없음, IG 탭 없음,
   content script ping timeout처럼 시작 전에 막힌 원인
 - `tab_probe` / `tab_selected`: 활성 IG 탭, 캐시된 탭, 기존 IG 탭, 새 탭 생성 중 어느 경로를
   사용했는지
@@ -75,16 +75,16 @@ node dev/dev-server.mjs
 - `content_command_sent` / `content_command_failed`: `PROCESS_TARGET`, `SCRAPE_EMAIL`,
   `SEARCH_AND_SEND` 명령 전송 여부와 실패 응답
 - `search_failure_pattern`: 검색창 열기, 검색 결과 매칭, 프로필 진입 실패가 연속되는 패턴
-- `preflight_blocked: message_repetition`: 최근 발송 로그와 같은 구조의 메시지가 반복되어
+- `preflight_hold: message_repetition`: 최근 발송 로그와 같은 구조의 메시지가 반복되어
   실제 IG 실행 전에 중지된 상태
 - `target_result` / `run_stop` / `critical_failure`: 대상별 결과, 루프 중지 이유, 예외 중단
 
-`run_stop: repeated_search_failures`는 제한 신호가 명시적으로 잡히지 않았더라도 같은 검색/프로필
-진입 실패가 반복되어 런을 멈춘 상태입니다. `preflight_blocked: message_template_issue`는
-`{{name}}` 같은 필수 템플릿 변수가 남아 실제 DM 전송 전에 차단된 상태입니다.
+`run_stop: repeated_search_failures`는 같은 검색/프로필
+진입 실패가 반복되어 런을 멈춘 상태입니다. `preflight_hold: message_template_issue`는
+`{{name}}` 같은 필수 템플릿 변수가 남아 실제 DM 전송 전에 보류된 상태입니다.
 
 특히 `http://127.0.0.1:8137` 웹 하니스는 UI/스토리지 개발용이라 Instagram 탭을 자동 조작할
-수 없습니다. 이 상태에서 시작하면 `preflight_blocked: web_harness_mode`로 기록됩니다.
+수 없습니다. 이 상태에서 시작하면 `preflight_hold: web_harness_mode`로 기록됩니다.
 
 ## 구조
 
@@ -108,9 +108,8 @@ src/
 
 현재 매니페스트는 `storage`, `tabs`, `sidePanel`, `clipboardWrite`, `scripting`,
 `debugger` 권한과 `*://*.instagram.com/*`, `*://ig.me/*`, Supabase 프로젝트 host
-permission을 사용합니다. `debugger`는 신뢰 입력(trusted input, `isTrusted=true`)을
-위해 사용되며, 자동화 중 IG 탭 상단에 "확장이 디버깅 중" 배너가 표시됩니다(정상 —
-멈추거나 30초 유휴 시 자동 해제).
+permission을 사용합니다. `debugger`는 브라우저 입력 이벤트 실행에 사용되며,
+작업 중 IG 탭 상단에 "확장이 디버깅 중" 배너가 표시됩니다(30초 유휴 시 자동 해제).
 
 ## 클라우드 동기화 / 대시보드 (Supabase)
 
@@ -161,7 +160,7 @@ anon 정책까지 함께 만듭니다.
 
 ## 자연화 (사람처럼 행동)
 
-반복·불완전·스팸성 동작을 줄이고 운영 품질을 높이기 위한 기능들입니다. **모두 기본
+반복·불완전한 흐름을 줄이고 운영 품질을 높이기 위한 기능들입니다. **모두 기본
 켜짐**이며 **확장 옵션 → 자연화** 섹션에서 개별로 끌 수 있습니다(끄면 기존 기본 동작).
 
 - **A. 진입 경로 다양화** (`entryDiversify`): 프로필 진입을 검색 55% / URL 직접 30% /
@@ -176,18 +175,17 @@ anon 정책까지 함께 만듭니다.
   컨텍스트로 쓰지 않습니다. 메시지 변형은 기존 `{a|b|c}` 스핀 문법(대상별 다른 변형)으로 작성.
   *전용 변형 묶음 UI + 엄격한 LRU는 후속 과제로 보류.*
 - **D. 프로필 컨텍스트 기반 스킵/우선순위** (`smartFilter`, `skipPrivate`, `minFollowers`):
-  수집 시 팔로워 수·비공개 여부를 함께 읽어 비공개/저팔로워는 자동 스킵(긍정 감지일
+  수집 시 팔로워 수·비공개 여부를 함께 읽어 비공개/저팔로워는 자동 스킵(명확히 확인될
   때만 — 못 읽으면 절대 스킵 안 함), DM 큐는 팔로워 많은 순 우선. *최근 포스트 시점·
   카테고리는 IG 웹에서 신뢰성 있게 못 읽어 의도적으로 제외.*
 - **E. 세션 페이싱** (`sessionPacing`): 15~45분 세션, 세션 내 3~5건마다 1~2분 피드 "딴짓",
   세션 종료 시 5~20분 실제 휴식(디버거 분리) 후 새 세션. 기존 배치 쿨다운 위에 얹힘.
-- **F. 소프트 경고 쿨다운** (`softSignalGuard`): 하드 차단 *전* 경고 문구(다이얼로그/알림
-  한정)를 감지하면 즉시 런을 멈추고 쿨다운 상태로 전환합니다.
+- **F. 세션 알림 쿨다운** (`softSignalGuard`): 서비스 알림 문구(다이얼로그/알림
+  한정)를 확인하면 즉시 런을 멈추고 쿨다운 상태로 전환합니다.
 - **G. 비즈니스 contact 버튼** (`useContactButton`): 프로필의 이메일/연락처 버튼(보통
   `mailto:` 링크)을 "더보기"보다 우선 사용해 고신뢰 이메일을 바로 수집.
 - **H. 메시지 품질 가드** (`messageQualityGuard`): 최근 발송 로그를 기준으로 URL·@핸들을
-  표준화한 메시지 구조가 반복되면 IG 탭을 열기 전에 중지합니다. 공개 bot/CIB 연구에서 반복
-  콘텐츠·행동 시퀀스가 주요 신호로 다뤄지는 점을 반영한 운영 품질 가드입니다.
+  표준화한 메시지 구조가 반복되면 IG 탭을 열기 전에 중지합니다.
 - **입력 경로 안전장치**: DM 본문·검색 핸들 등 모든 IG 입력을 글자별 CDP 신뢰
   타이핑으로 통일(클립보드 paste 경로 완전 제거). CDP가 막혀 synthetic fallback으로 내려가도
   문장부호 휴지·이모지 앞 멈칫을 유지하고, 오타정정은 ASCII만 적용해 한글 IME 조합을 건드리지
@@ -204,7 +202,7 @@ anon 정책까지 함께 만듭니다.
 2. **A/feed**: 'feed' 경로에서 홈으로 갔다가 검색으로 돌아오는지(홈 nav 셀렉터 확인).
 3. **B**: 포스트 모달이 Escape로 닫히고 프로필로 복귀하는지(모달 vs /p/ 네비).
 4. **C**: 해시태그 있는 프로필에서 `{{context}}`가 채워지고, 없으면 그 줄이 빠지는지.
-5. **D**: 팔로워 수 파싱(1.2만/12.3K)·비공개 감지가 맞는지, 스킵·우선순위 반영되는지.
+5. **D**: 팔로워 수 파싱(1.2만/12.3K)·비공개 확인이 맞는지, 스킵·우선순위 반영되는지.
 6. **F**: 소프트 경고 문구 오탐(정상 UI를 경고로 오인) 없는지.
 7. **G**: 비즈니스 계정 `mailto:` 버튼에서 이메일을 바로 잡는지.
 8. **입력**: DM 본문이 한 글자씩 입력되는지(붙여넣기 흔적 없음), 한글 정상 입력.
@@ -216,7 +214,7 @@ anon 정책까지 함께 만듭니다.
 attribution), puppeteer-extra-plugin-human-typing(0x7357, MIT), TheGP/Imposter,
 prescience-data, instagrapi 가이드.
 
-- **I·II·III 마우스** (`stealthMouse`): 학습된 실제 제스처 재생이 1순위로 유지되고, 학습
+- **I·II·III 마우스** (`motionMouse`): 학습된 실제 제스처 재생이 1순위로 유지되고, 학습
   데이터가 없을 때의 합성 경로를 **베지에 곡선 + Fitts 법칙 타이밍 + overshoot/보정 +
   요소 내 랜덤 좌표 + 클릭 전 hover**로 업그레이드. (SW가 CDP 디스패치를 소유하므로 path
   수학은 `content/`가 아니라 `src/background/humanMouse.js`에 둠.)
@@ -225,7 +223,7 @@ prescience-data, instagrapi 가이드.
   최종 입력 검증 실패 시 전송하지 않습니다.
 - **V 문장부호 휴지** (`punctuationPause`): `,` 후 0.15~0.4s, `. ? !` 후 0.4~0.9s, 줄바꿈 후
   0.8~2s, 5% 확률 1.5~4s 생각.
-- **VI 스크롤 이징** (`stealthScroll`): 합성 스크롤을 easeInOutCubic 관성 + ±2px jitter,
+- **VI 스크롤 이징** (`motionScroll`): 합성 스크롤을 easeInOutCubic 관성 + ±2px jitter,
   300px당 8~15틱으로.
 - **VII 비례 읽기** (`proportionalDwell`): 바이오 길이에 비례한 읽기 시간(상한 10s).
 - **VIII warm-up + 캡** (`warmupEnabled`): 세션 첫 8분 피드 워밍업(발송 X), 상태별 시간당

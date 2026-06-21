@@ -7,8 +7,8 @@
 //
 // NOTE (verified on real IG 2026-06): the sender handle as IG renders it is "0big__oioi"
 // (double underscore). DM-able targets first — thezet.io / zetty.me show "메시지 보내기";
-// finer.ai / blu.blue.bleu / sweeeeeetsweet were message-restricted / own-profile in
-// testing, so they exercise the no-message-button path (and the skip-don't-halt safety net).
+// finer.ai / blu.blue.bleu / sweeeeeetsweet exercised the no-message-button path in
+// testing, so they cover the skip-don't-halt handling.
 
 import * as store from './storage.js';
 

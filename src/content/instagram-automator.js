@@ -241,7 +241,7 @@ function traceDump(outcome) {
 // Classify an error message into a stable failure reason (for aggregating across runs).
 function classifyFail(msg) {
   const m = (msg || '').toLowerCase();
-  if (m.includes('action_blocked')) return 'blocked';
+  if (m.includes('ig_notice') || m.includes('action_blocked')) return 'service_notice';
   if (m.includes('typed_text_mismatch') || m.includes('입력 검증 실패')) return 'typed_text_mismatch';
   if (m.includes('메시지 보내기 버튼') || (m.includes('메시지') && m.includes('찾을 수 없'))) return 'no_message_button';
   if (m.includes('작성창')) return 'composer_not_ready';
@@ -270,7 +270,7 @@ function captureState(reason) {
     },
     actionButtons,
     ariaSignals,
-    bodyHasBlock: safe(() => detectBlockDialog()),
+      bodyHasBlock: safe(() => detectBlockDialog()),
     mainHTML: safe(() => (document.querySelector('main')?.innerHTML || '').replace(/\s+/g, ' ').slice(0, 4000)) || '',
   };
 }
@@ -481,7 +481,7 @@ async function simulateHumanScroll(deltaTotal) {
  * Curved cursor approach + PointerEvent + MouseEvent sequence + focus/blur, then a
  * single native el.click() (the reliable React-onClick trigger). Note: synthetic
  * events are always isTrusted=false — this matches the event *types* IG listens on
- * (pointer/mouse), which is the realistic win; it can't fake isTrusted.
+ * (pointer/mouse), which is the realistic win; it cannot set isTrusted from page JS.
  */
 async function simulateHumanClick(el, options = {}) {
   if (!el) return false;
@@ -1024,7 +1024,7 @@ async function assessCurrentInstagramState() {
   ];
   const restrictSignal = restrictPhrases.find((phrase) => bodyText.includes(phrase)) || null;
   const hasRestrictMessage = !!restrictSignal;
-  const restrictionSignals = [...new Set([blockDialogReason, tryAgainLaterSignal, restrictSignal].filter(Boolean))];
+  const serviceNoticeSignals = [...new Set([blockDialogReason, tryAgainLaterSignal, restrictSignal].filter(Boolean))];
   const leftNavVisible = hasSearchButton; // nav가 보이면 검색 버튼이 있어야 함
   const isNarrowViewport = window.innerWidth < 900;
 
@@ -1052,7 +1052,7 @@ async function assessCurrentInstagramState() {
     searchResultsCount,
     hasTryAgainLater,
     hasRestrictMessage,
-    restrictionSignals,
+    serviceNoticeSignals,
     timestamp: Date.now()
   };
 
@@ -1078,7 +1078,7 @@ function diagnoseWhyStuck(phase, targetHandle, state) {
     if (state.hasSearchInput && state.searchResultsCount < 3) {
       reasons.push('검색 패널은 열렸으나 결과가 거의 없음 (핸들 오타, IG 검색 지연, 또는 계정 숨김)');
     }
-    if (state.hasTryAgainLater) reasons.push('IG가 "나중에 다시 시도" 제한 상태');
+    if (state.hasTryAgainLater) reasons.push('IG가 "나중에 다시 시도" 알림을 표시함');
   }
 
   if (phase === 'profile' || phase === 'on_profile') {
@@ -1101,7 +1101,7 @@ function diagnoseWhyStuck(phase, targetHandle, state) {
   }
 
   if (state.hasBlockDialog || state.hasTryAgainLater || state.hasRestrictMessage) {
-    reasons.push('IG 제한 다이얼로그 감지됨 (rate limit, spam filter, 또는 "try again later")');
+    reasons.push('IG 서비스 알림이 표시됨 ("try again later" 등)');
   }
 
   if (reasons.length === 0) {
@@ -1118,10 +1118,10 @@ function diagnoseWhyStuck(phase, targetHandle, state) {
 
 function throwIfRestrictedState(state, phase = 'unknown') {
   if (state && (state.hasBlockDialog || state.hasTryAgainLater || state.hasRestrictMessage)) {
-    const reason = Array.isArray(state.restrictionSignals) && state.restrictionSignals.length
-      ? state.restrictionSignals.join(' / ')
-      : '제한 문구 감지';
-    throw new Error(`ACTION_BLOCKED: IG 제한 상태 감지됨 (${phase}) — ${reason}`);
+    const reason = Array.isArray(state.serviceNoticeSignals) && state.serviceNoticeSignals.length
+      ? state.serviceNoticeSignals.join(' / ')
+      : '서비스 알림 문구 확인';
+    throw new Error(`IG_NOTICE: IG 서비스 알림 확인 (${phase}) — ${reason}`);
   }
 }
 
@@ -1378,7 +1378,7 @@ async function handleSearchAndSend(handle, text, entry) {
     }
   } else if (isFollowControl(msgBtn)) {
     // Safety net: never click a Follow/Following button. Treat as "no message button".
-    throw new Error('메시지 보내기 버튼을 찾을 수 없습니다 (팔로우 버튼만 노출 — 메시지 제한 계정).');
+    throw new Error('메시지 보내기 버튼을 찾을 수 없습니다 (팔로우 버튼만 노출).');
   } else {
     await ensureVisibleAndConfirm(msgBtn, 'message button on profile');
     await simulateHumanClick(msgBtn);
@@ -1487,7 +1487,7 @@ async function handleAutoSend(text) {
 
   const postSendBlockReason = detectBlockDialogReason();
   if (postSendBlockReason) {
-    throw new Error(`ACTION_BLOCKED: 인스타그램에서 발송을 제한했습니다 — ${postSendBlockReason}`);
+    throw new Error(`IG_NOTICE: 인스타그램 서비스 알림 확인 — ${postSendBlockReason}`);
   }
 
   // Post-send review (인간은 보낸 메시지를 한 번 더 확인) — this is the deliberate part.
@@ -1719,7 +1719,7 @@ function assertNoUnresolvedTemplateVars(text) {
 // Track D — profile context for skip/priority decisions. Only the reliably-readable
 // signals on IG web: followers count + private flag. Last-post recency and category are
 // NOT reliably available on the web grid, so we don't fabricate them. Anything we can't
-// read stays null/false, and the side panel only ever SKIPS on a positive detection.
+// read stays null/false, and the side panel only ever SKIPS on a positive read.
 function parseCount(s) {
   if (!s) return null;
   const str = String(s).trim().replace(/,/g, '');
@@ -2176,10 +2176,9 @@ function detectBlockDialog() {
   return !!detectBlockDialogReason();
 }
 
-// Track F — SOFT signals: early-warning text that often precedes a hard block. Scoped to
+// Track F — SOFT signals: service notice text. Scoped to
 // dialog/alert/toast containers (and short ones) to limit false positives from ordinary
-// page copy. Returns a reason phrase or null. The HARD block stays detectBlockDialog →
-// ACTION_BLOCKED; this is the proactive "back off before the block" signal.
+// page copy. Returns a reason phrase or null. The service notice path pauses the run.
 function detectSoftSignal() {
   const SOFT = [
     'try again later', '나중에 다시 시도', '다시 시도해', 'please wait', '잠시 후 다시',

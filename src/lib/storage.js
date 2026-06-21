@@ -19,7 +19,7 @@ async function setKey(key, val) {
   await chrome.storage.local.set({ [key]: val });
 }
 
-// Serialize all read-modify-write mutations so concurrent callers (e.g. the bulk
+// Serialize all read-modify-write mutations so concurrent callers (e.g. the queue
 // loop flipping a target status while the user imports a CSV or deletes a target)
 // don't clobber each other's full-array writes. Reads stay lock-free.
 let _writeChain = Promise.resolve();
@@ -199,19 +199,19 @@ export const SETTINGS_DEFAULTS = {
   restMaxMin: 20,
   burstMin: 3,
   burstMax: 5,
-  softSignalGuard: true,   // F. detect soft warnings → cool off before a hard block
+  softSignalGuard: true,   // F. service notice → cool off before continuing
   useContactButton: true,  // G. prefer business contact/email buttons over "더보기"
   emailMultiPath: true,    // email scrape: bio → m.instagram.com → highlights
-  messageQualityGuard: true, // H. block broken or repeated message skeletons before opening IG
+  messageQualityGuard: true, // H. hold broken or repeated message skeletons before opening IG
   messageRepeatWindow: 8,
   messageRepeatLimit: 2,
   autoFollow: true,        // unified flow: follow ONLY when no message button, then retry DM
-  // Stealth (고급 사람모방, OSS-derived) — all default ON, each switch-off-able.
-  stealthMouse: true,      // I/II/III bezier path + Fitts timing + overshoot + hover
+  // Advanced motion/input (OSS-derived) — all default ON, each switch-off-able.
+  motionMouse: true,       // I/II/III bezier path + Fitts timing + overshoot + hover
   typoCorrection: true,    // IV corrected typo -> backspace -> correction, guarded by final exact text verification
   typoChance: 0.03,
   punctuationPause: true,  // V micro-pause after , . and newlines
-  stealthScroll: true,     // VI eased wheel profile + jitter
+  motionScroll: true,      // VI eased wheel profile + jitter
   proportionalDwell: true, // VII reading time scales with text length
   warmupEnabled: false,    // VIII OFF by default (was blocking testing for ~8min). Turn ON in
                            //      options for safe live runs (cold→warm→active + hourly caps).

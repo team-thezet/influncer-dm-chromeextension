@@ -3,7 +3,7 @@ import { getSettings, saveSettings, SETTINGS_DEFAULTS } from '../lib/storage.js'
 
 const $ = (id) => document.getElementById(id);
 const TOGGLES = ['motionLearn', 'autoFollow', 'entryDiversify', 'profileDwell', 'dynamicContext', 'useContactButton', 'emailMultiPath', 'messageQualityGuard', 'smartFilter', 'skipPrivate', 'softSignalGuard', 'sessionPacing',
-  'stealthMouse', 'typoCorrection', 'punctuationPause', 'stealthScroll', 'proportionalDwell', 'backtrackEnabled', 'warmupEnabled', 'circadianEnabled',
+  'motionMouse', 'typoCorrection', 'punctuationPause', 'motionScroll', 'proportionalDwell', 'backtrackEnabled', 'warmupEnabled', 'circadianEnabled',
   'typingMouseJitter', 'attentionPause', 'wordRevision', 'emojiPause', 'prePeekPosts', 'storyView', 'readingMicroScroll', 'wrongHover', 'sendHesitation', 'timeOfDaySession'];
 const NUMS = ['skipInactiveDays', 'minFollowers', 'sessionMinMin', 'sessionMaxMin', 'restMinMin', 'restMaxMin', 'burstMin', 'burstMax',
   'capColdPerHour', 'capWarmPerHour', 'capActivePerHour'];

@@ -274,7 +274,7 @@ async function cdpClick(tabId, x, y, fromX, fromY, w, h) {
   // press point, if we have a usable one.
   const dist = Math.hypot(press.x - f.x, press.y - f.y);
   const ang = Math.atan2(press.y - f.y, press.x - f.x);
-  const stealth = swOn('stealthMouse');
+  const naturalMotion = swOn('motionMouse');
   // III — hover dwell at the target before pressing; 11-9 — occasionally hover a nearby
   // wrong spot first, then correct onto the target (a misjudged reach).
   const hover = async () => {
@@ -283,7 +283,7 @@ async function cdpClick(tabId, x, y, fromX, fromY, w, h) {
       await sleep(rnd(120, 320));
       await cdp(tabId, 'Input.dispatchMouseEvent', { type: 'mouseMoved', x: press.x, y: press.y, button: 'none', buttons: 0, pointerType: 'mouse' });
     }
-    await sleep(stealth ? rnd(80, 250) : rnd(40, 140));
+    await sleep(naturalMotion ? rnd(80, 250) : rnd(40, 140));
   };
 
   const g = pickGesture(_motionLib.gestures, dist, ang);
@@ -301,8 +301,8 @@ async function cdpClick(tabId, x, y, fromX, fromY, w, h) {
 
   // Fallback (no learned gesture yet): I/II — ghost-cursor cubic-Bezier path with
   // Fitts-law-scaled, eased step timing and optional overshoot + corrective hops.
-  const { points, overshot } = bezierPath(f, press, { overshoot: stealth });
-  const total = stealth ? fittsDuration(dist, w || 24) : rnd(120, 320);
+  const { points, overshot } = bezierPath(f, press, { overshoot: naturalMotion });
+  const total = naturalMotion ? fittsDuration(dist, w || 24) : rnd(120, 320);
   for (let i = 0; i < points.length; i++) {
     const p = points[i];
     await cdp(tabId, 'Input.dispatchMouseEvent', { type: 'mouseMoved', x: p.x, y: p.y, button: 'none', buttons: 0, pointerType: 'mouse' });
@@ -347,7 +347,7 @@ async function cdpScroll(tabId, x, y, totalDy) {
   }
   // VI — eased wheel profile (slow→fast→slow) with ±2px jitter, ~8–15 ticks per 300px,
   // when no captured scroll pattern fits. Easing gives natural scroll inertia.
-  if (swOn('stealthScroll')) {
+  if (swOn('motionScroll')) {
     const perBlock = 8 + Math.floor(Math.random() * 8); // 8–15 ticks / 300px
     const n = Math.max(5, Math.round((Math.abs(want) / 300) * perBlock));
     let prev = 0;

@@ -1,5 +1,5 @@
-// Side-panel app: campaign + target management, template builder, bulk preview,
-// browser automation controls, and logging.
+// Side-panel app: campaign + target management, template builder, queue preview,
+// browser workflow controls, and logging.
 
 import '../lib/dev-shim.js'; // dev-only chrome.* polyfill (inert in a real extension)
 import * as store from '../lib/storage.js';
@@ -149,7 +149,7 @@ const state = {
 
 function extractRestrictionSignal(err) {
   const s = String(err || '');
-  const emDash = s.match(/ACTION_BLOCKED:[^\n]*?[—-]\s*([^\n]+)/i);
+  const emDash = s.match(/IG_NOTICE:[^\n]*?[—-]\s*([^\n]+)/i);
   if (emDash) return emDash[1].trim().slice(0, 180);
   const known = [
     'try again later', '나중에 다시 시도', '다시 시도해', 'please wait', '잠시 후 다시',
@@ -157,11 +157,11 @@ function extractRestrictionSignal(err) {
     'tried too often', 'suspicious', '수상한 활동', '비정상적인 활동', 'action blocked',
     '작업이 차단', 'restrict certain activity', 'couldn’t send', "couldn't send", '전송하지 못', '보낼 수 없',
   ];
-  return known.find((p) => s.toLowerCase().includes(p.toLowerCase())) || s.slice(0, 180) || '제한 신호 감지';
+  return known.find((p) => s.toLowerCase().includes(p.toLowerCase())) || s.slice(0, 180) || '서비스 알림 확인';
 }
 
 async function rememberRestrictionSignal(type, signal, phase) {
-  const info = { type, signal: signal || '제한 신호 감지', phase: phase || '', at: Date.now() };
+  const info = { type, signal: signal || '서비스 알림 확인', phase: phase || '', at: Date.now() };
   state.lastRestrictionSignal = info;
   await patchCampaign({ lastRestrictionSignal: info });
   return info;
@@ -170,15 +170,15 @@ async function rememberRestrictionSignal(type, signal, phase) {
 async function stopForSoftSignal(reason, phase) {
   const signal = extractRestrictionSignal(reason);
   await rememberRestrictionSignal('soft_signal', signal, phase);
-  recordDetection('soft_signal', signal);
-  await startBlockCooldown(`${phase} 중 IG 제한 신호가 감지되었습니다: ${signal}`);
+  recordPlatformNotice('soft_signal', signal);
+  await startBlockCooldown(`${phase} 중 IG 서비스 알림이 확인되었습니다: ${signal}`);
 }
 
 async function stopForHardBlock(error, phase) {
   const signal = extractRestrictionSignal(error);
   await rememberRestrictionSignal('hard_block', signal, phase);
-  recordDetection('hard_block', signal);
-  await startBlockCooldown(`${phase} 중 IG가 활동을 제한했습니다: ${signal}`);
+  recordPlatformNotice('hard_block', signal);
+  await startBlockCooldown(`${phase} 중 IG 서비스 알림이 확인되었습니다: ${signal}`);
 }
 
 // Track E — session pacing. Work in 15–45m sessions; within a session do 3–5 actions
@@ -415,7 +415,7 @@ async function patchCampaign(patch) {
   state.campaigns = await store.listCampaigns();
 }
 
-// ── ACTION_BLOCKED cooldown (persisted on the campaign so it survives panel reloads) ──
+// ── Service notice cooldown (persisted on the campaign so it survives panel reloads) ──
 function isBlockedNow() {
   const c = currentCampaign();
   return !!(c && c.cooldownUntil && c.cooldownUntil > Date.now());
@@ -424,7 +424,7 @@ function blockedMsg() {
   const c = currentCampaign();
   const mins = c && c.cooldownUntil ? Math.ceil((c.cooldownUntil - Date.now()) / 60000) : 0;
   const signal = currentRestrictionSignal()?.signal;
-  return `IG 활동 제한 휴식 중 — 약 ${mins}분 후 다시 시도하세요.${signal ? ` 감지: ${signal}` : ''}`;
+  return `IG 세션 휴식 중 — 약 ${mins}분 후 다시 시도하세요.${signal ? ` 알림: ${signal}` : ''}`;
 }
 function currentRestrictionSignal() {
   const c = currentCampaign();
@@ -437,12 +437,12 @@ function renderRestrictionBanner() {
   const cooldownLeft = c?.cooldownUntil && c.cooldownUntil > Date.now()
     ? ` · 남은 휴식 약 ${Math.ceil((c.cooldownUntil - Date.now()) / 60000)}분`
     : '';
-  const label = info.type === 'hard_block' ? '하드 제한' : info.type === 'soft_signal' ? '소프트 제한' : '제한 신호';
+  const label = info.type === 'hard_block' ? '서비스 알림' : info.type === 'soft_signal' ? '세션 알림' : '알림';
   const phase = info.phase ? ` · 단계 ${esc(info.phase)}` : '';
   const at = info.at ? ` · ${esc(fmtTs(info.at))}` : '';
   return `<div class="banner warn" style="margin-bottom:10px;">
-    <b>IG ${label} 감지</b>${phase}${at}${cooldownLeft}<br/>
-    <span class="hint">감지 문구: <code>${esc(info.signal)}</code></span>
+    <b>IG ${label}</b>${phase}${at}${cooldownLeft}<br/>
+    <span class="hint">알림 문구: <code>${esc(info.signal)}</code></span>
   </div>`;
 }
 // Escalating backoff: 30m → 2h → 24h on repeat blocks within a campaign.
@@ -453,7 +453,7 @@ async function startBlockCooldown(reason) {
   state.cooldownUntil = Date.now() + minutes * 60 * 1000;
   await patchCampaign({ cooldownUntil: state.cooldownUntil, blockStrikes: strikes });
   const label = minutes >= 60 ? `${minutes / 60}시간` : `${minutes}분`;
-  toast(`${reason} 계정 보호를 위해 ${label} 휴식합니다. (제한 ${strikes}회)`);
+  toast(`${reason} ${label} 휴식합니다. (연속 알림 ${strikes}회)`);
 }
 
 // ── top-level render ─────────────────────────────────────────────────────────
@@ -966,16 +966,16 @@ async function renderSend() {
   const notScrapedCount = state.targets.filter((t) => t.status === 'pending').length;
 
   body.innerHTML = `
-    <h3>발송 자동화</h3>
+    <h3>발송 실행</h3>
     ${c.senderHandle ? `<div class="banner warn">발신 계정 <b>@${esc(c.senderHandle)}</b> — 인스타그램에 이 계정으로 로그인돼 있는지 먼저 확인하세요.</div>` : ''}
     <div class="banner info">
-      이 도구는 인스타그램 웹에 스크립트를 주입하여 <b>메시지 입력 및 전송을 자동화</b>합니다.
+      이 도구는 인스타그램 웹에서 <b>메시지 입력 및 전송 흐름</b>을 실행합니다.
       설정된 배치 크기와 딜레이 값을 사용해 전체 대기열을 순차적으로 처리할 수 있습니다.
       <br/><span class="hint">발송/수집 중 IG 탭 상단에 <b>"확장이 디버깅 중"</b> 배너가 뜨면 정상입니다 — 실제 사람 입력(trusted)을 위해 <code>chrome.debugger</code>를 사용하며, 멈추거나 30초 유휴 시 자동 해제됩니다.</span>
     </div>
     ${renderRestrictionBanner()}
     <div class="row" style="margin:4px 0 8px;">
-      <button class="sm ghost" id="dumpIgStateBtn" title="IG 탭의 현재 DOM 상태를 콘솔에 덤프합니다. 자동화가 멈췄을 때 눌러서 로그를 복사해 주세요.">IG 페이지 상태 덤프 (디버그)</button>
+      <button class="sm ghost" id="dumpIgStateBtn" title="IG 탭의 현재 DOM 상태를 콘솔에 덤프합니다. 실행이 멈췄을 때 눌러서 로그를 복사해 주세요.">IG 페이지 상태 덤프 (디버그)</button>
       <button class="sm ghost" id="exportTracesBtn" title="실행 전 차단/탭 선택/ping/명령/DOM trace를 JSON으로 내보냅니다 — 문제 분석/수정용.">🧪 트레이스 내보내기</button>
       <button class="sm ghost" id="clearTracesBtn" title="저장된 trace 초기화">trace 비우기</button>
       <button class="sm ghost" id="resetTestBtn" title="현재 캠페인 대상을 모두 pending으로 되돌립니다 (재테스트용).">🔁 대상 리셋</button>
@@ -1048,7 +1048,7 @@ async function renderSend() {
            </div>
 
            <div class="card" style="margin-top:12px; background:#f4f6fa; border:1px solid #dcdfe6;">
-             <h4 style="margin:0 0 8px;">🔄 응답 감지 및 2차 링크 발송</h4>
+             <h4 style="margin:0 0 8px;">🔄 응답 확인 및 2차 링크 발송</h4>
              <p class="hint" style="margin-top:0;">'전송함(sent)' 상태인 대상들의 채팅창을 스캔하여, 답장이 왔다면 아래 템플릿을 전송합니다.</p>
              <label style="font-size:12px;">2차 발송용 템플릿 선택:</label>
              <select id="followUpTemplateId" style="width:100%; margin-bottom:8px; padding:4px;">
@@ -1056,7 +1056,7 @@ async function renderSend() {
              </select>
              <div class="actions">
                ${state.isCheckingReplies
-                 ? `<button class="primary flag-bad" id="stopCheckReplies">감지 및 발송 중지</button>`
+                 ? `<button class="primary flag-bad" id="stopCheckReplies">확인 및 발송 중지</button>`
                  : `<button class="primary" id="startCheckReplies" ${counts.sent === 0 ? 'disabled' : ''}>응답 확인 및 2차 발송 시작 🚀</button>`
                }
              </div>
@@ -1151,12 +1151,12 @@ function bindSendCard(t, tpl) {
   $('#autoSendBtn')?.addEventListener('click', async () => {
     const res = await sendSingleTarget(t, r, tpl);
     if (!res.ok) {
-      if (res.errorCode === 'blocked') {
+      if (res.errorCode === 'service_notice') {
         await stopForHardBlock(res.error, '개별 발송');
       } else if (res.quality) {
         toast('발송 전 차단: ' + (res.error || '메시지 품질 확인 필요'));
       } else if (res.errorCode === 'no_dm') {
-        await store.updateTarget(t.id, { status: 'skipped', emailReason: 'DM 버튼 없음 (메시지 제한/본인 계정)' });
+        await store.updateTarget(t.id, { status: 'skipped', emailReason: 'DM 버튼 없음/본인 계정' });
       } else {
         await store.updateTarget(t.id, {
           status: 'failed',
@@ -1306,8 +1306,8 @@ function pickEntryRoute() {
   return 'feed';
 }
 
-function isBlockedAutomationError(err) {
-  return /ACTION_BLOCKED|IG 제한|try again later|나중에 다시 시도|활동을 제한/i.test(String(err || ''));
+function isServiceNoticeError(err) {
+  return /IG_NOTICE|try again later|나중에 다시 시도|활동을 제한/i.test(String(err || ''));
 }
 
 function unresolvedTemplateVars(text) {
@@ -1453,11 +1453,11 @@ async function sendSingleTarget(t, r, tpl, outStatus = 'sent') {
   recordRunEvent('entry_route', route, { handle: t.handle, tabId, phase: 'send_single' });
   await prepareEntry(tabId, t.handle, route);
 
-  toast(`@${t.handle} 자동화 스크립트 대기 중...`);
+  toast(`@${t.handle} 실행 스크립트 대기 중...`);
   const isReady = await waitForPing(tabId, 30, { handle: t.handle, route, phase: 'send_single' });
   if (!isReady) {
     recordRunEvent('preflight_blocked', 'content_script_ping_timeout', { handle: t.handle, tabId, route, phase: 'send_single' });
-    toast('자동 발송 타임아웃. 인스타그램 탭이 활성화되어 있고 로그인이 되어 있는지 확인하세요.');
+    toast('발송 실행 타임아웃. 인스타그램 탭이 활성화되어 있고 로그인이 되어 있는지 확인하세요.');
     await store.addLog({
       id: store.uid(), campaignId: state.campaignId, targetHandle: t.handle,
       ts: Date.now(), finalText: 'ping_timeout', result: 'failed',
@@ -1473,10 +1473,10 @@ async function sendSingleTarget(t, r, tpl, outStatus = 'sent') {
       recordTrace(response, 'send');
       if (chrome.runtime.lastError || !response || !response.success) {
         const err = response ? response.error : (chrome.runtime.lastError?.message || '알 수 없음');
-        const blocked = isBlockedAutomationError(err);
+        const serviceNotice = isServiceNoticeError(err);
         // no_dm = this target has no profile "메시지 보내기" button (restricted account /
         // own profile) — skip it and keep going, don't treat it as a fatal send failure.
-        const errorCode = blocked ? 'blocked' : (response && response.reason === 'no_message_button') ? 'no_dm' : 'send_failed';
+        const errorCode = serviceNotice ? 'service_notice' : (response && response.reason === 'no_message_button') ? 'no_dm' : 'send_failed';
         recordRunEvent('content_command_failed', response?.reason || errorCode, {
           handle: t.handle,
           tabId,
@@ -1543,7 +1543,7 @@ async function scrapeEmailForTarget(t) {
       id: store.uid(), campaignId: state.campaignId, targetHandle: t.handle,
       ts: Date.now(), finalText: 'ping_timeout', result: 'failed',
     });
-    return { ok: false, infra: true, error: '자동화 스크립트가 준비되지 않았습니다.' };
+    return { ok: false, infra: true, error: '실행 스크립트가 준비되지 않았습니다.' };
   }
   return new Promise((resolve) => {
     recordRunEvent('content_command_sent', 'SCRAPE_EMAIL', { handle: t.handle, tabId, route });
@@ -1551,7 +1551,7 @@ async function scrapeEmailForTarget(t) {
       recordTrace(response, 'scrape');
       if (chrome.runtime.lastError || !response || !response.success) {
         const err = response ? response.error : (chrome.runtime.lastError?.message || '알 수 없음');
-        const blocked = isBlockedAutomationError(err);
+        const serviceNotice = isServiceNoticeError(err);
         recordRunEvent('content_command_failed', response?.reason || 'scrape_email_failed', {
           handle: t.handle,
           tabId,
@@ -1559,7 +1559,7 @@ async function scrapeEmailForTarget(t) {
           error: err,
           hasResponse: !!response,
         });
-        if (!blocked) {
+        if (!serviceNotice) {
           // Per-target scrape failure (bad/private handle, transient DOM): mark failed so
           // the queue advances instead of locking on this head-of-queue target forever.
           await store.updateTarget(t.id, {
@@ -1575,7 +1575,7 @@ async function scrapeEmailForTarget(t) {
           });
           await reloadTargets();
         }
-        resolve({ ok: false, infra: blocked, blocked, errorCode: response?.reason || null, error: err });
+        resolve({ ok: false, infra: serviceNotice, blocked: serviceNotice, errorCode: response?.reason || null, error: err });
         return;
       }
       const email = response.email || null;
@@ -1584,8 +1584,8 @@ async function scrapeEmailForTarget(t) {
       const isPrivate = !!response.isPrivate;
       const followersCount = typeof response.followersCount === 'number' ? response.followersCount : null;
 
-      // Track D — skip private / low-follower profiles, but ONLY on a positive detection
-      // (unknown followers / not-detected-private never skip — safe default is proceed).
+      // Track D — skip private / low-follower profiles, but ONLY on a positive read
+      // (unknown followers / unknown-private never skip — safe default is proceed).
       const s = state.settings;
       let skipReason = null;
       if (s.smartFilter !== false) {
@@ -1652,7 +1652,7 @@ async function processTargetOnce(t, r) {
       hint: 'Reload the Instagram tab after reloading the unpacked extension.',
     });
     await store.addLog({ id: store.uid(), campaignId: state.campaignId, targetHandle: t.handle, ts: Date.now(), finalText: 'ping_timeout', result: 'failed' });
-    return { ok: false, infra: true, error: '자동화 스크립트가 준비되지 않았습니다.' };
+    return { ok: false, infra: true, error: '실행 스크립트가 준비되지 않았습니다.' };
   }
   const sendProcessCommand = (entryRoute, attempt = 'primary') => new Promise((resolve) => {
     recordRunEvent('content_command_sent', 'PROCESS_TARGET', { handle: t.handle, tabId, route: entryRoute, attempt });
@@ -1668,7 +1668,7 @@ async function processTargetOnce(t, r) {
           error: err,
           hasResponse: !!response,
         });
-        resolve({ ok: false, response, blocked: isBlockedAutomationError(err), errorCode: response?.reason || null, error: err });
+        resolve({ ok: false, response, blocked: isServiceNoticeError(err), errorCode: response?.reason || null, error: err });
         return;
       }
       resolve({ ok: true, response });
@@ -1704,7 +1704,7 @@ async function processTargetOnce(t, r) {
     await store.updateTarget(t.id, { status: 'sent', ...meta });
     await store.addLog({ id: store.uid(), campaignId: state.campaignId, targetHandle: t.handle, ts: Date.now(), finalText: response.finalText || r.text, result: 'sent' });
   } else {
-    await store.updateTarget(t.id, { status: 'skipped', emailReason: 'DM 버튼 없음 (메시지 제한)', ...meta });
+    await store.updateTarget(t.id, { status: 'skipped', emailReason: 'DM 버튼 없음', ...meta });
     await store.addLog({ id: store.uid(), campaignId: state.campaignId, targetHandle: t.handle, ts: Date.now(), finalText: response.reason || 'no_message_button', result: 'skipped' });
   }
   await reloadTargets();
@@ -1767,7 +1767,7 @@ document.addEventListener('click', async (e) => {
         recordRunEvent('preflight_blocked', 'web_harness_mode', {
           hint: 'Open the unpacked Chrome extension side panel. The 127.0.0.1 harness cannot drive Instagram tabs.',
         });
-        toast('웹 하니스에서는 IG 자동화를 실행할 수 없습니다. 언팩 확장 사이드패널에서 실행하세요.');
+        toast('웹 하니스에서는 IG 실행 흐름을 사용할 수 없습니다. 언팩 확장 사이드패널에서 실행하세요.');
         return;
       }
       if (state.isProcessing) {
@@ -2062,15 +2062,15 @@ document.addEventListener('click', async (e) => {
             renderAll();
             break;
           }
-          if (res.errorCode === 'blocked') {
+          if (res.errorCode === 'service_notice') {
             await stopForHardBlock(res.error, '발송');
             state.isAutoSending = false;
             renderAll();
             break;
           }
           if (res.errorCode === 'no_dm') {
-            // No profile "메시지 보내기" button (restricted / own account) — skip & continue.
-            await store.updateTarget(nextTarget.id, { status: 'skipped', emailReason: 'DM 버튼 없음 (메시지 제한/본인 계정)' });
+            // No profile "메시지 보내기" button (unavailable / own account) — skip & continue.
+            await store.updateTarget(nextTarget.id, { status: 'skipped', emailReason: 'DM 버튼 없음/본인 계정' });
             await store.addLog({ id: store.uid(), campaignId: state.campaignId, targetHandle: nextTarget.handle, ts: Date.now(), finalText: 'no_message_button', result: 'skipped' });
             await reloadTargets();
             toast(`@${nextTarget.handle} DM 버튼 없음 → 건너뜀`);
@@ -2123,7 +2123,7 @@ document.addEventListener('click', async (e) => {
         const batchSize = state.settings.batchSize || 10;
 
         // Track F — soft warning after a successful send: stop immediately and enter
-        // the same persisted cooldown flow as a hard ACTION_BLOCKED response.
+        // the same persisted cooldown flow as a service notice response.
         if (res.softSignal && state.isAutoSending) {
           await stopForSoftSignal(res.softSignal, '발송');
           state.isAutoSending = false; renderAll(); break;
@@ -2249,7 +2249,7 @@ document.addEventListener('click', async (e) => {
         tabEstablished = true;
 
         if (replyRes.hasReplied) {
-          toast(`@${nextTarget.handle} 응답 감지됨! 2차 메시지 발송 중...`);
+          toast(`@${nextTarget.handle} 응답 확인됨! 2차 메시지 발송 중...`);
           await store.updateTarget(nextTarget.id, { status: 'replied' });
 
           const r = render(followUpTemplate.body, { handle: nextTarget.handle, ...nextTarget.vars }, seedFrom(nextTarget.handle));
@@ -2257,7 +2257,7 @@ document.addEventListener('click', async (e) => {
           const res = await sendSingleTarget(nextTarget, r, followUpTemplate, 'second_sent');
 
           if (!res.ok) {
-            if (res.errorCode === 'blocked') await stopForHardBlock(res.error, '2차 발송');
+            if (res.errorCode === 'service_notice') await stopForHardBlock(res.error, '2차 발송');
             else if (res.quality) toast('2차 발송 전 차단: ' + (res.error || '메시지 품질 확인 필요'));
             else toast('2차 발송 실패로 중지합니다.');
             state.isCheckingReplies = false;
@@ -2422,18 +2422,18 @@ function recordTrace(response, kind) {
     }
   } catch (e) { console.warn('addTrace failed', e); }
 }
-// Detection timeline (goal #2): record each hard block / soft warning with run context,
-// into the same traces store so one export shows "blocked after N actions in M sec".
-function recordDetection(type, reason) {
+// Platform-notice timeline: record each service notice with run context,
+// into the same traces store so one export shows where the run paused.
+function recordPlatformNotice(type, reason) {
   try {
     store.addTrace({
-      kind: 'detection', type, reason: reason || null, ts: Date.now(),
+      kind: 'platform_notice', type, reason: reason || null, ts: Date.now(),
       campaignId: state.campaignId,
       runActionCount: state.runActionCount || 0,
       sinceRunStartSec: state.runStartAt ? Math.round((Date.now() - state.runStartAt) / 1000) : null,
       paceFactor: state.paceFactor || 1,
     });
-  } catch (e) { console.warn('recordDetection failed', e); }
+  } catch (e) { console.warn('recordPlatformNotice failed', e); }
 }
 function recordRunEvent(type, reason, extra = {}) {
   try {

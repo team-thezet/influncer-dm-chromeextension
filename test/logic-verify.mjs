@@ -35,7 +35,7 @@ console.log('\n===== PURE MODULES =====');
   ok('hm: bezier starts near from', Math.hypot(bp.points[0].x, bp.points[0].y) < 40, bp.points[0]);
 }
 {
-  const need = ['entryDiversify', 'stealthMouse', 'warmupEnabled', 'circadianEnabled', 'typingMouseJitter', 'wordRevision', 'emojiPause', 'sendHesitation', 'timeOfDaySession', 'warmupColdMin', 'capActivePerHour', 'messageQualityGuard'];
+  const need = ['entryDiversify', 'motionMouse', 'warmupEnabled', 'circadianEnabled', 'typingMouseJitter', 'wordRevision', 'emojiPause', 'sendHesitation', 'timeOfDaySession', 'warmupColdMin', 'capActivePerHour', 'messageQualityGuard'];
   ok('settings: all expected keys present', need.every(k => k in SETTINGS_DEFAULTS), need.filter(k => !(k in SETTINGS_DEFAULTS)));
 }
 

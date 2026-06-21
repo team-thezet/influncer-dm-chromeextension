@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "협찬 아웃리치 오거나이저",
   "version": "0.1.0",
-  "description": "마이크로 인플루언서 협찬 아웃리치용 대상 리스트·템플릿·일괄 미리보기·브라우저 자동화 실행·로그 도구.",
+  "description": "마이크로 인플루언서 협찬 아웃리치용 대상 리스트·템플릿·일괄 미리보기·실행 로그 도구.",
   "minimum_chrome_version": "114",
   "permissions": ["storage", "tabs", "sidePanel", "clipboardWrite", "scripting", "debugger", "alarms"],
   "host_permissions": ["*://*.instagram.com/*", "*://ig.me/*", "https://your-project-ref.supabase.co/*"],
