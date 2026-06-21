@@ -871,7 +871,7 @@ async function renderRun() {
 
     ${renderRestrictionBanner()}
     ${state.cooldownUntil && state.cooldownUntil > Date.now()
-      ? `<div class="banner warn" style="margin-bottom:10px;">휴식 중 (봇 탐지 회피) — <span id="cooldownTimer">계산 중…</span></div>` : ''}
+      ? `<div class="banner warn" style="margin-bottom:10px;">휴식 중 — <span id="cooldownTimer">계산 중…</span></div>` : ''}
 
     <table><tbody>
       ${state.targets.length
@@ -1012,7 +1012,7 @@ async function renderSend() {
           : `<button class="primary" id="startCollectEmails" ${notScrapedCount === 0 ? 'disabled' : ''}>이메일 수집 시작 🚀</button>`}
         <button class="sm ghost" id="exportEmails" ${emailCollectedCount === 0 ? 'disabled' : ''}>수집 이메일 CSV</button>
       </div>
-      ${state.isCollectingEmails ? `<p class="hint" style="margin-top:8px;">프로필을 순차 방문해 바이오를 펼치고 이메일을 추출 중입니다... (봇 탐지 회피 딜레이 적용)</p>` : ''}
+      ${state.isCollectingEmails ? `<p class="hint" style="margin-top:8px;">프로필을 순차 방문해 바이오를 펼치고 이메일을 추출 중입니다... (랜덤 딜레이 적용)</p>` : ''}
     </div>
 
     <h4 style="margin:6px 0;">2단계 · DM 발송 (이메일 없는 대상)</h4>
@@ -1039,11 +1039,11 @@ async function renderSend() {
              </div>
              ${state.cooldownUntil && state.cooldownUntil > Date.now()
                  ? `<div class="banner warn" style="margin-top:8px;">
-                      <b>휴식 모드 작동 중</b><br/>봇 탐지를 피하기 위해 대기 중입니다.<br/>
+                      <b>휴식 모드 작동 중</b><br/>세션 페이싱에 따라 대기 중입니다.<br/>
                       <span id="cooldownTimer">남은 시간 계산 중...</span>
                     </div>`
                  : state.isAutoSending
-                   ? `<p class="hint" style="margin-top:8px;">자동 발송이 진행 중입니다... (봇 탐지 회피를 위해 발송 사이 랜덤 딜레이 적용)</p>`
+                   ? `<p class="hint" style="margin-top:8px;">자동 발송이 진행 중입니다... (발송 사이 랜덤 딜레이 적용)</p>`
                    : ''}
            </div>
 
@@ -1060,7 +1060,7 @@ async function renderSend() {
                  : `<button class="primary" id="startCheckReplies" ${counts.sent === 0 ? 'disabled' : ''}>응답 확인 및 2차 발송 시작 🚀</button>`
                }
              </div>
-             ${state.isCheckingReplies ? `<p class="hint" style="margin-top:8px;">채팅창을 순차적으로 확인 중입니다... (봇 탐지 회피 딜레이 적용)</p>` : ''}
+             ${state.isCheckingReplies ? `<p class="hint" style="margin-top:8px;">채팅창을 순차적으로 확인 중입니다... (랜덤 딜레이 적용)</p>` : ''}
            </div>
 
            ${next ? renderSendCard(next, tpl) : `<div class="empty">대기 중인 대상이 없습니다.</div>`}`

@@ -209,9 +209,9 @@ anon 정책까지 함께 만듭니다.
 7. **G**: 비즈니스 계정 `mailto:` 버튼에서 이메일을 바로 잡는지.
 8. **입력**: DM 본문이 한 글자씩 입력되는지(붙여넣기 흔적 없음), 한글 정상 입력.
 
-## 스텔스 (고급 사람모방, OSS 기반)
+## 고급 모션/입력 자연화 (OSS 기반)
 
-해외 stealth OSS 기법 10종. **확장 옵션 → 스텔스** 섹션에서 개별 토글(기본 켜짐). 출처:
+공개 모션/입력 OSS 패턴 10종. **확장 옵션 → 고급 모션/입력** 섹션에서 개별 토글(기본 켜짐). 출처:
 [ghost-cursor](https://github.com/Xetera/ghost-cursor) (MIT, `src/background/humanMouse.js`에
 attribution), puppeteer-extra-plugin-human-typing(0x7357, MIT), TheGP/Imposter,
 prescience-data, instagrapi 가이드.
@@ -230,13 +230,13 @@ prescience-data, instagrapi 가이드.
 - **VII 비례 읽기** (`proportionalDwell`): 바이오 길이에 비례한 읽기 시간(상한 10s).
 - **VIII warm-up + 캡** (`warmupEnabled`): 세션 첫 8분 피드 워밍업(발송 X), 상태별 시간당
   캡(cold 3 / warm 8 / active 12). 우리 액션만 카운트(사용자 수동 분리). `chrome.alarms`
-  1분 틱으로 윈도우 정리(SW setInterval 5분 제약 회피).
+  1분 틱으로 윈도우 정리(SW setInterval 5분 제약 대응).
 - **IX 서카디언** (`circadianEnabled`): 브라우저 로컬시간 기준 새벽 02~07시 ~4%로 억제,
   엣지 시간대 캡 축소.
-- **X 백트래킹** (`backtrackEnabled`): 세션 페이싱 안에서 13% explore 우회·5% 뒤로가기·3%
+- **X 백트래킹** (`backtrackEnabled`): 세션 페이싱 안에서 13% explore 경유·5% 뒤로가기·3%
   검색만 열고 닫기.
 
-### 스텔스 추가 라이브 검증
+### 고급 모션/입력 추가 라이브 검증
 
 9. **I~III**: 클릭 시 곡선 이동·살짝 지나쳤다 보정·누르기 전 hover 멈칫(특히 모션 학습
    데이터가 적을 때 합성 경로).
@@ -245,7 +245,7 @@ prescience-data, instagrapi 가이드.
     캡/warm-up은 분당 단위라 검증 시 캡을 낮게(예: 2)·warm-up을 1분으로 줄여 확인 권장.
 12. **X**: 가끔 explore로 샜다 돌아오거나 뒤로가기 후 재개되는지.
 
-## 추가 행동 패턴 (XI) + 탐지 회피 (XII)
+## 추가 행동 패턴 (XI) + 환경 점검 (XII)
 
 **XI — 12종 추가 행동** (옵션 "추가 행동 패턴", 기본 켜짐):
 11-1 타이핑 중 마우스 미세 이동 / 11-2·3 "딴 데 보는" 자연 휴지(실제 탭전환 X) /
@@ -256,11 +256,9 @@ prescience-data, instagrapi 가이드.
 조합을 절대 건드리지 않음.** 11-4 마지막 단어 고쳐쓰기는 기본 켜짐이며, 완성 한글 음절과
 영문/숫자 단어만 대상으로 합니다.
 
-**XII — CDP/확장 탐지 회피**: 실제 Chrome이라 지문(canvas/WebGL/audio/font/WebRTC/lang/
-screen 등)은 자연값 그대로. 코드 점검 결과 **모두 클린**(자동화 마커 미설정, toString/
-console/performance/navigator 미변조, content script는 ISOLATED world·DOM 미주입,
-externally_connectable 미선언으로 페이지가 확장에 접근 불가, IG 쿠키/스토리지 미접촉).
-유일한 코드 변경: **12-8 디버거 idle 자동분리 30s→15s** (attach 창 최소화).
+**XII — CDP/확장 환경 점검**: 실제 Chrome 환경 값을 그대로 사용하고, content script는
+ISOLATED world에서 동작합니다. IG 쿠키/스토리지 값은 건드리지 않으며, 유일한 코드 변경은
+**12-8 디버거 idle 자동분리 30s→15s**입니다.
 
 ### XI/XII 추가 라이브 검증
 

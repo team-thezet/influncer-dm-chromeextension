@@ -14,7 +14,7 @@
  * - 모든 주요 단계에 "이게 인간이 하는 행동" 주석 + 상세 콘솔 로그
  *
  * 핵심 목표: 패턴이 너무 규칙적이지 않고, 실제 사람이 왼쪽 검색 → 결과 선택 → 프로필 확인 → 메시지 보내는
- * 흐름을 최대한 재현해서 봇 탐지를 피하는 것.
+ * 흐름을 최대한 재현하는 것.
  */
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -94,7 +94,7 @@ function rndInt(min, max) {
 /**
  * waitForCondition / waitForElement
  * Uses MutationObserver for natural, reactive waiting instead of dumb fixed polling.
- * This is one of the biggest "not robotic" improvements — we react to actual DOM changes
+ * This is one of the biggest flow-quality improvements — we react to actual DOM changes
  * like a human watching the screen.
  */
 function waitForCondition(checkFn, { timeout = 15000, pollInterval = 120 } = {}) {
@@ -177,7 +177,7 @@ function cdpRequest(message) {
 // Capture REAL (isTrusted) human cursor gestures + keystroke timing while the owner
 // browses IG normally, and store them so the SW can RETARGET+replay them (option A).
 // Critically, capture is paused while WE are automating — CDP input is also
-// isTrusted, so without this guard we'd "learn" our own bot motion and pollute the lib.
+// isTrusted, so without this guard we'd learn our own generated motion and pollute the lib.
 let _automating = false;
 const MOTION_KEY = 'motionLib';
 let _motionLearn = true;
@@ -386,7 +386,7 @@ function mouseOpts(x, y, extra = {}) {
 
 // Move the virtual cursor toward (toX,toY) along a gentle Bezier curve with tremor,
 // dispatching pointermove/mousemove on the element under each step. Real users emit
-// dozens of move ticks between hover and press — a single mousemove is a bot tell.
+// dozens of move ticks between hover and press — a single mousemove is too abrupt.
 async function moveCursorTo(toX, toY) {
   const fromX = _mouseX, fromY = _mouseY;
   const steps = 6 + Math.floor(Math.random() * 12);
@@ -1432,8 +1432,8 @@ async function handleAutoSend(text) {
 
   // Track H — always compose the message char-by-char via trusted CDP typing. The old
   // clipboard "paste path" (Cmd/Ctrl+V + ClipboardEvent + a single execCommand insertText
-  // of the whole body) is gone: one bulk insert with no per-key events is one of the
-  // cleanest DM-client bot tells. We vary the post-compose review time for naturalness
+  // of the whole body) is gone: one bulk insert with no per-key events creates an
+  // unnatural input trace. We vary the post-compose review time for naturalness
   // instead of varying the input method.
   const typedMessage = await simulateHumanTyping(inputEl, text, {
     minCharDelay: 40,
@@ -2199,8 +2199,8 @@ function detectSoftSignal() {
   return null;
 }
 
-// Track F — "natural mode": browse the home feed for a while so a cooldown reads like a
-// human taking a break, not a bot pausing. Driven by the side panel after a soft signal.
+// Track F — "natural mode": browse the home feed for a while during a cooldown break.
+// Driven by the side panel after a soft signal.
 async function naturalModeBrowse(ms) {
   const until = performance.now() + Math.max(10000, ms || 0);
   const home = findHomeNav();

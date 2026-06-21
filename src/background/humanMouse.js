@@ -16,7 +16,7 @@ export function easeInOutCubic(t) {
 }
 
 // Fitts's law: movement time grows with the index of difficulty log2(distance/width + 1),
-// so a far/small target genuinely takes longer (a too-fast long move is a bot tell). ms.
+// so a far/small target genuinely takes longer. ms.
 export function fittsDuration(distance, width = 24) {
   const id = Math.log2(Math.max(1, distance) / Math.max(2, width) + 1);
   return 90 + 130 * id; // short hops ~120ms, long drags ~500–700ms

@@ -98,7 +98,7 @@ chrome.storage.onChanged.addListener((ch, area) => {
   if (area === 'local' && ch.motionLib && ch.motionLib.newValue) _motionLib = ch.motionLib.newValue;
 });
 
-// Settings cache for the SW-side stealth features (mouse/scroll/typing/warm-up/circadian).
+// Settings cache for the SW-side motion/input features (mouse/scroll/typing/warm-up/circadian).
 // ON-by-default flags use `!== false`, mirroring SETTINGS_DEFAULTS + the content cache.
 let _swSettings = {};
 try { chrome.storage.local.get('settings', (o) => { _swSettings = (o && o.settings) || {}; }); } catch {}
@@ -186,7 +186,7 @@ function retargetGesture(g, fromX, fromY, toX, toY) {
   const ca = Math.cos(ang), sa = Math.sin(ang);
   // Fitts's law: a longer move genuinely takes longer (~log of distance). The captured
   // gesture's timing fits ITS distance; when we stretch/shrink it to a new distance,
-  // scale the durations so the replay isn't too fast for a far target (a bot tell).
+  // scale the durations so the replay is not too fast for a far target.
   const tScale = Math.max(0.5, Math.min(2.2, Math.log2(2 + dstLen) / Math.log2(2 + srcLen)));
   return g.off.map((p, i) => {
     const rx = (p.x * ca - p.y * sa) * s;
